@@ -1,42 +1,51 @@
 "use client";
 
 /**
- * ThemeProvider — reads the theme from IndexedDB and applies it to <html>
- * as a data-theme attribute before the first paint via a synchronous
- * localStorage fallback (avoids the flash of wrong theme on cold start).
+ * ThemeProvider — reads theme + accentDomain from IndexedDB and applies:
+ *   data-theme  → dark | amoled | light
+ *   data-accent → focus | energy | calm
+ * Both are mirrored to localStorage so the inline anti-flash script
+ * in layout.tsx can restore them before React hydrates.
  */
 
 import { useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 
-const LS_THEME_KEY = "lifeos_theme";
+const LS_THEME_KEY  = "lifeos_theme";
+const LS_ACCENT_KEY = "lifeos_accent";
 
-// Called on the server + client during hydration — reads localStorage for
-// the theme applied by the inline script in layout.tsx <head>.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const settings = useLiveQuery(() => db.settings.get(1), []);
 
   useEffect(() => {
-    const theme = settings?.theme ?? "dark";
-    document.documentElement.setAttribute("data-theme", theme);
-    try { localStorage.setItem(LS_THEME_KEY, theme); } catch { /* */ }
-  }, [settings?.theme]);
+    const theme  = settings?.theme        ?? "dark";
+    const accent = settings?.accentDomain ?? "focus";
+
+    document.documentElement.setAttribute("data-theme",  theme);
+    document.documentElement.setAttribute("data-accent", accent);
+
+    try {
+      localStorage.setItem(LS_THEME_KEY,  theme);
+      localStorage.setItem(LS_ACCENT_KEY, accent);
+    } catch { /* storage blocked */ }
+  }, [settings?.theme, settings?.accentDomain]);
 
   return <>{children}</>;
 }
 
 /**
- * Inline script for <head> — runs synchronously before React hydrates
- * to avoid flash of wrong theme. Reads localStorage (set by ThemeProvider).
+ * Inline script injected into <head> — runs synchronously before React
+ * hydrates so theme + accent are correct from the very first frame.
  */
-export const themeScript = `
-(function() {
+export const themeScript = `(function(){
   try {
-    var t = localStorage.getItem('${LS_THEME_KEY}') || 'dark';
-    document.documentElement.setAttribute('data-theme', t);
+    var t = localStorage.getItem('${LS_THEME_KEY}')  || 'dark';
+    var a = localStorage.getItem('${LS_ACCENT_KEY}') || 'focus';
+    document.documentElement.setAttribute('data-theme',  t);
+    document.documentElement.setAttribute('data-accent', a);
   } catch(e) {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.setAttribute('data-theme',  'dark');
+    document.documentElement.setAttribute('data-accent', 'focus');
   }
-})();
-`.trim();
+})();`;

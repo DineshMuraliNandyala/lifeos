@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Footprints, Dumbbell, Plus, Settings2, Play, RotateCcw, Trophy } from "lucide-react";
+import { Footprints, Dumbbell, Plus, Settings2, Play, RotateCcw, Trophy, Activity, StepForward } from "lucide-react";
 import { PageShell, PageHeader } from "@/components/layout/page-shell";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ExerciseEditorSheet } from "@/features/fitness/exercise-editor-sheet";
 import { weekdayLabel } from "@/lib/date";
 import { useFitnessData, addProtein } from "@/features/fitness/use-fitness-data";
+import { useNativePedometer } from "@/features/health/use-native-pedometer";
 
 const QUICK_ADD = [20, 25, 30, 40];
 
@@ -17,6 +18,7 @@ export default function FitnessPage() {
   const router = useRouter();
   const { settings, dateISO, weekday, proteinTotal, todaysExercises, stepReading, todaySession } =
     useFitnessData();
+  const pedometer = useNativePedometer();
 
   const [editorOpen, setEditorOpen] = useState(false);
 
@@ -194,35 +196,91 @@ export default function FitnessPage() {
         </Card>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Steps card                                                           */}
+        {/* Steps card — live pedometer                                          */}
         {/* ------------------------------------------------------------------ */}
-        <Card>
-          <CardHeader title="Steps" right={<Footprints className="w-4 h-4 text-text-faint" />} />
-          {stepReading ? (
-            <div className="flex items-center gap-4">
-              <ProgressRing
-                value={stepReading.steps / stepGoal}
-                accent="calm"
-                label={String(stepReading.steps)}
-                sublabel={`of ${stepGoal}`}
+        {(() => {
+          // Use pedometer count if active, fall back to DB reading from Google Fit
+          const displaySteps = pedometer.status === "active" || pedometer.todaySteps > 0
+            ? pedometer.todaySteps
+            : (stepReading?.steps ?? 0);
+          const stepGoal = settings?.stepGoal ?? 8000;
+          const distKm   = ((displaySteps * 0.000762)).toFixed(2);
+          const kcal     = Math.round(displaySteps * 0.04);
+
+          return (
+            <Card>
+              <CardHeader
+                title="Steps"
+                subtitle={`Goal: ${stepGoal.toLocaleString()} steps`}
+                right={<Footprints className="w-4 h-4 text-text-faint" />}
               />
-              <div className="text-xs text-text-muted">
-                {stepReading.distanceMeters != null && (
-                  <p>{(stepReading.distanceMeters / 1000).toFixed(2)} km</p>
-                )}
-                {stepReading.calories != null && <p>{Math.round(stepReading.calories)} kcal</p>}
+              <div className="flex items-center gap-4">
+                <ProgressRing
+                  value={displaySteps / stepGoal}
+                  accent="calm"
+                  label={displaySteps > 0 ? displaySteps.toLocaleString() : "0"}
+                  sublabel={`of ${stepGoal.toLocaleString()}`}
+                />
+                <div className="flex-1">
+                  {displaySteps > 0 && (
+                    <div className="text-xs text-text-muted space-y-0.5 mb-3">
+                      <p>~{distKm} km walked</p>
+                      <p>~{kcal} kcal burned</p>
+                    </div>
+                  )}
+
+                  {/* Start / Stop button */}
+                  {pedometer.status === "active" ? (
+                    <button
+                      onClick={pedometer.stop}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium transition-all"
+                      style={{
+                        background: "var(--danger-dim)",
+                        color: "var(--danger)",
+                        border: "1px solid var(--danger)",
+                      }}
+                    >
+                      <Activity className="h-3.5 w-3.5 animate-pulse" />
+                      Tracking… Stop
+                    </button>
+                  ) : pedometer.status === "unsupported" ? (
+                    <p className="text-xs text-text-faint">
+                      Motion sensor not available in this browser.
+                    </p>
+                  ) : pedometer.status === "denied" ? (
+                    <p className="text-xs text-danger">
+                      Motion permission denied. Enable in browser settings.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={pedometer.start}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium transition-all active:scale-95"
+                      style={{
+                        background: "var(--accent-calm-dim)",
+                        color: "var(--accent-calm)",
+                        border: "1px solid var(--accent-calm)",
+                      }}
+                    >
+                      <StepForward className="h-3.5 w-3.5" />
+                      {pedometer.status === "requesting" ? "Requesting…" : "Start tracking"}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <EmptyState
-              icon={Footprints}
-              title="Not connected to Health Connect"
-              description="Link your Android Health Connect permissions in Settings to see steps here automatically."
-              className="py-6"
-            />
-          )}
-        </Card>
+
+              {/* Source label */}
+              <p className="mt-3 text-[10px] text-text-faint">
+                {pedometer.status === "active"
+                  ? "📱 Using phone accelerometer · keep app open"
+                  : stepReading
+                  ? "☁️ Synced from Google Fit"
+                  : "Tap 'Start tracking' to count steps with your phone's motion sensor"}
+              </p>
+            </Card>
+          );
+        })()}
       </PageShell>
+
 
       {/* Exercise editor sheet (portal-like, outside PageShell) */}
       <ExerciseEditorSheet

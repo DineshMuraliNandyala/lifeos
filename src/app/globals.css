@@ -135,6 +135,26 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   ACCENT DOMAIN REMAPPING
+   When accentDomain !== "focus", remap the --accent-focus tokens so every
+   accent-colored element (nav pill, progress ring, buttons, glows) picks
+   up the user's chosen colour without touching component classes.
+═══════════════════════════════════════════════════════════════════════════ */
+[data-accent="energy"] {
+  --accent-focus:      #ff9478;
+  --accent-focus-dim:  rgba(255,148,120,0.15);
+  --accent-focus-glow: rgba(255,148,120,0.28);
+  --color-focus:       #ff9478;
+}
+
+[data-accent="calm"] {
+  --accent-focus:      #c4b0ff;
+  --accent-focus-dim:  rgba(196,176,255,0.15);
+  --accent-focus-glow: rgba(196,176,255,0.28);
+  --color-focus:       #c4b0ff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TAILWIND v4 COLOR BRIDGE
 ═══════════════════════════════════════════════════════════════════════════ */
 @theme inline {
