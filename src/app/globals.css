@@ -1,0 +1,261 @@
+@import "tailwindcss";
+
+/*
+  LifeOS — Liquid Glass + Neomorphic Design System
+  ──────────────────────────────────────────────────
+  Cards and panels are frosted glass: blurred, semi-transparent, with a 1px
+  specular rim on top. Interactive elements use soft neomorphic shadows.
+  Three themes: dark (default), amoled (true-black), light (warm white).
+  Applied via data-theme on <html>.
+*/
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME  (default)
+═══════════════════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Background layers */
+  --bg:              #09090f;
+  --bg-gradient:     radial-gradient(ellipse 80% 60% at 20% -10%, #1a1040 0%, transparent 60%),
+                     radial-gradient(ellipse 60% 50% at 80% 100%, #0d1f3c 0%, transparent 55%),
+                     #09090f;
+
+  /* Glass surfaces (backdrop-filter must be applied in components) */
+  --glass-bg:        rgba(255, 255, 255, 0.05);
+  --glass-border:    rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.08); /* top rim specular */
+  --glass-shadow:    0 0 0 0.5px rgba(255,255,255,0.06) inset,
+                     0 1px 0 0 rgba(255,255,255,0.10) inset,
+                     0 24px 48px -12px rgba(0,0,0,0.55),
+                     0 4px 16px -4px rgba(0,0,0,0.40);
+
+  /* Neomorphic shadows (used on buttons / inputs) */
+  --neo-shadow:      6px 6px 14px rgba(0,0,0,0.50), -3px -3px 8px rgba(255,255,255,0.03);
+  --neo-inset:       inset 3px 3px 8px rgba(0,0,0,0.45), inset -2px -2px 5px rgba(255,255,255,0.03);
+
+  /* Surfaces (non-glass fallback for elements that can't blur) */
+  --surface-1:       #13141a;
+  --surface-2:       #1a1c24;
+  --surface-hover:   #20232e;
+  --border:          rgba(255,255,255,0.08);
+
+  /* Text */
+  --text:            #f0f1f5;
+  --text-muted:      #8a91a0;
+  --text-faint:      #4e5568;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AMOLED THEME  (true black)
+═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="amoled"] {
+  color-scheme: dark;
+
+  --bg:              #000000;
+  --bg-gradient:     radial-gradient(ellipse 70% 50% at 20% 0%, #110830 0%, transparent 55%),
+                     radial-gradient(ellipse 50% 40% at 85% 100%, #071428 0%, transparent 50%),
+                     #000000;
+
+  --glass-bg:        rgba(255, 255, 255, 0.04);
+  --glass-border:    rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-shadow:    0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                     0 1px 0 0 rgba(255,255,255,0.08) inset,
+                     0 24px 48px -12px rgba(0,0,0,0.80),
+                     0 4px 16px -4px rgba(0,0,0,0.60);
+
+  --neo-shadow:      6px 6px 14px rgba(0,0,0,0.80), -3px -3px 8px rgba(255,255,255,0.02);
+  --neo-inset:       inset 3px 3px 8px rgba(0,0,0,0.70), inset -2px -2px 5px rgba(255,255,255,0.02);
+
+  --surface-1:       #0a0a0a;
+  --surface-2:       #111111;
+  --surface-hover:   #1a1a1a;
+  --border:          rgba(255,255,255,0.06);
+
+  --text:            #f0f1f5;
+  --text-muted:      #828999;
+  --text-faint:      #404550;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME  (warm white)
+═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:              #f2f1ef;
+  --bg-gradient:     radial-gradient(ellipse 80% 60% at 15% -5%, #ddd6fe 0%, transparent 50%),
+                     radial-gradient(ellipse 60% 50% at 85% 110%, #bfdbfe 0%, transparent 50%),
+                     #f2f1ef;
+
+  --glass-bg:        rgba(255, 255, 255, 0.60);
+  --glass-border:    rgba(255, 255, 255, 0.90);
+  --glass-highlight: rgba(255, 255, 255, 0.95);
+  --glass-shadow:    0 0 0 0.5px rgba(255,255,255,0.80) inset,
+                     0 1px 0 0 rgba(255,255,255,1.0) inset,
+                     0 16px 40px -8px rgba(0,0,0,0.12),
+                     0 2px 8px -2px rgba(0,0,0,0.08);
+
+  --neo-shadow:      6px 6px 14px rgba(0,0,0,0.12), -4px -4px 10px rgba(255,255,255,0.90);
+  --neo-inset:       inset 3px 3px 8px rgba(0,0,0,0.10), inset -3px -3px 6px rgba(255,255,255,0.95);
+
+  --surface-1:       rgba(255,255,255,0.75);
+  --surface-2:       rgba(255,255,255,0.50);
+  --surface-hover:   rgba(255,255,255,0.85);
+  --border:          rgba(0,0,0,0.07);
+
+  --text:            #1a1917;
+  --text-muted:      #6b6860;
+  --text-faint:      #a8a49e;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHARED ACCENT + SEMANTIC TOKENS  (same across all themes)
+═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --accent-focus:      #7c9dff;
+  --accent-focus-dim:  rgba(124,157,255,0.15);
+  --accent-focus-glow: rgba(124,157,255,0.25);
+  --accent-energy:     #ff9478;
+  --accent-energy-dim: rgba(255,148,120,0.15);
+  --accent-calm:       #c4b0ff;
+  --accent-calm-dim:   rgba(196,176,255,0.15);
+
+  --success:      #6dc99a;
+  --success-dim:  rgba(109,201,154,0.15);
+  --warning:      #f7c462;
+  --warning-dim:  rgba(247,196,98,0.15);
+  --danger:       #f47070;
+  --danger-dim:   rgba(244,112,112,0.15);
+
+  --radius-card:    1.25rem;
+  --radius-pill:    999px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAILWIND v4 COLOR BRIDGE
+═══════════════════════════════════════════════════════════════════════════ */
+@theme inline {
+  --color-bg:           var(--bg);
+  --color-surface-1:    var(--surface-1);
+  --color-surface-2:    var(--surface-2);
+  --color-surface-hover:var(--surface-hover);
+  --color-border:       var(--border);
+  --color-text:         var(--text);
+  --color-text-muted:   var(--text-muted);
+  --color-text-faint:   var(--text-faint);
+
+  --color-focus:        var(--accent-focus);
+  --color-focus-dim:    var(--accent-focus-dim);
+  --color-energy:       var(--accent-energy);
+  --color-energy-dim:   var(--accent-energy-dim);
+  --color-calm:         var(--accent-calm);
+  --color-calm-dim:     var(--accent-calm-dim);
+
+  --color-success:      var(--success);
+  --color-success-dim:  var(--success-dim);
+  --color-warning:      var(--warning);
+  --color-warning-dim:  var(--warning-dim);
+  --color-danger:       var(--danger);
+  --color-danger-dim:   var(--danger-dim);
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:    ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+  --radius-2xl: var(--radius-card);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════════════════════════════════ */
+html { height: 100%; }
+
+body {
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  min-height: 100%;
+  transition: background-color 0.3s ease, color 0.2s ease;
+}
+
+::selection { background: var(--accent-focus-dim); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASS UTILITY CLASSES
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* Core liquid glass panel */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Thinner blur for nested elements */
+.glass-sm {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Neomorphic surface for buttons/inputs (no blur) */
+.neo {
+  box-shadow: var(--neo-shadow);
+}
+.neo-inset {
+  box-shadow: var(--neo-inset);
+}
+
+/* Specular top-rim highlight (::before pseudo overlay) */
+.glass-rim::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    160deg,
+    rgba(255,255,255,0.12) 0%,
+    rgba(255,255,255,0.02) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* Accent glow ring for active states */
+.glow-focus { box-shadow: 0 0 0 2px var(--accent-focus-glow), 0 0 20px var(--accent-focus-glow); }
+.glow-energy { box-shadow: 0 0 0 2px var(--accent-energy-dim), 0 0 20px var(--accent-energy-dim); }
+.glow-calm   { box-shadow: 0 0 0 2px var(--accent-calm-dim),  0 0 20px var(--accent-calm-dim);  }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+═══════════════════════════════════════════════════════════════════════════ */
+.font-display  { font-family: var(--font-display); }
+.font-mono-tab { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBARS  (thin, quiet)
+═══════════════════════════════════════════════════════════════════════════ */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
