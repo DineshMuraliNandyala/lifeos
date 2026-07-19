@@ -38,7 +38,9 @@ export function LeetCodeConnect({ currentUsername, isConnected, onConnected }: P
     setState({ phase: "loading" });
 
     try {
-      const res = await fetch(`${PROXY_URL}/auth/leetcode`, {
+      // Auth goes to /api/leetcode/auth (Vercel/AWS) — not the Cloudflare Worker,
+      // which shares IPs with LeetCode and triggers bot detection.
+      const res = await fetch("/api/leetcode/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),

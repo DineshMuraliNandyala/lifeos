@@ -16,7 +16,7 @@ const QUICK_ADD = [20, 25, 30, 40];
 
 export default function FitnessPage() {
   const router = useRouter();
-  const { settings, dateISO, weekday, proteinTotal, todaysExercises, stepReading, todaySession } =
+  const { settings, dateISO, weekday, proteinTotal, proteinLoading, todaysExercises, stepReading, todaySession } =
     useFitnessData();
   const pedometer = useNativePedometer();
 
@@ -97,10 +97,10 @@ export default function FitnessPage() {
         <Card className="mb-4">
           <CardHeader title="Protein" subtitle={`Goal: ${proteinGoal}g`} />
           <div className="flex items-center gap-4">
-            <ProgressRing
-              value={proteinTotal / proteinGoal}
+          <ProgressRing
+              value={proteinLoading ? 0 : (proteinTotal ?? 0) / proteinGoal}
               accent="energy"
-              label={`${proteinTotal}g`}
+              label={proteinLoading ? "--" : `${proteinTotal ?? 0}g`}
               sublabel={`of ${proteinGoal}g`}
             />
             <div className="flex flex-1 flex-wrap gap-2">

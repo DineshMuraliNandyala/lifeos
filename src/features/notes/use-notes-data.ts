@@ -34,3 +34,14 @@ export async function addNote(title: string, category: NoteCategory, body: strin
     updatedAt: now,
   });
 }
+
+export async function updateNote(
+  id: number,
+  patch: { title: string; category: NoteCategory; bodyMarkdown: string }
+) {
+  await db.notes.update(id, { ...patch, updatedAt: new Date().toISOString() });
+}
+
+export async function deleteNote(id: number) {
+  await db.notes.delete(id);
+}

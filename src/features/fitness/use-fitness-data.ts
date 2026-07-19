@@ -45,7 +45,8 @@ export function useFitnessData() {
     settings,
     dateISO,
     weekday,
-    proteinTotal: proteinTotal ?? 0,
+    proteinTotal,                          // undefined while loading, number once ready
+    proteinLoading: proteinTotal === undefined,
     todaysExercises: todaysExercises ?? [],
     stepReading,
     todaySession,
