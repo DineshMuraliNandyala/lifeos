@@ -9,7 +9,6 @@
  *                           Password is NEVER stored — only the session token
  *                           is returned to the client.
  *
- * All routes forward X-Leetcode-Session as Cookie: LEETCODE_SESSION=...
  * Deploy: wrangler deploy
  */
 
@@ -24,19 +23,17 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, X-Leetcode-Session",
 };
 
+// Realistic Android browser UA — reduces bot-detection hits
 const USER_AGENT =
-  "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
-
-// ---------------------------------------------------------------------------
-// Header builder
-// ---------------------------------------------------------------------------
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36";
 
 function baseHeaders(session?: string | null): Record<string, string> {
   const h: Record<string, string> = {
-    Referer: LEETCODE_ORIGIN,
-    Origin:  LEETCODE_ORIGIN,
+    Referer:      LEETCODE_ORIGIN,
+    Origin:       LEETCODE_ORIGIN,
     "User-Agent": USER_AGENT,
+    "Accept-Language": "en-US,en;q=0.9",
   };
   if (session) h["Cookie"] = `LEETCODE_SESSION=${session}`;
   return h;
@@ -57,11 +54,14 @@ function json502(msg: string, detail?: string): Response {
 }
 
 // ---------------------------------------------------------------------------
-// LeetCode Login Flow
+// LeetCode Login Flow  (fixed v2)
 //
-// Step 1: GET leetcode.com to obtain a fresh csrftoken cookie
-// Step 2: POST accounts/login/ with credentials + CSRF token
-// Step 3: Parse LEETCODE_SESSION from Set-Cookie on the response
+// Step 1: GET /accounts/login/ to obtain a fresh csrftoken cookie.
+//         Using the login page specifically (not /) because it always
+//         returns the csrf cookie even without JS execution.
+// Step 2: POST /accounts/login/ with x-www-form-urlencoded body.
+//         LeetCode's Django backend expects form data, NOT JSON.
+// Step 3: Parse LEETCODE_SESSION from Set-Cookie on the 302 redirect.
 // ---------------------------------------------------------------------------
 
 async function handleLeetCodeAuth(request: Request): Promise<Response> {
@@ -77,76 +77,123 @@ async function handleLeetCodeAuth(request: Request): Promise<Response> {
     return json400("Both username and password are required");
   }
 
-  // ── Step 1: get a fresh CSRF token ────────────────────────────────────────
+  // ── Step 1: GET the login page to extract csrftoken ───────────────────────
   let csrfToken: string;
+  let csrfCookieHeader: string;
   try {
-    const csrf = await fetch(LEETCODE_ORIGIN + "/", {
-      headers: { "User-Agent": USER_AGENT },
+    const loginPage = await fetch(LEETCODE_LOGIN, {
+      method: "GET",
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
       redirect: "follow",
     });
-    const setCookie = csrf.headers.get("set-cookie") ?? "";
-    const match = setCookie.match(/csrftoken=([^;]+)/);
+
+    // Try Set-Cookie header first
+    const setCookie = loginPage.headers.get("set-cookie") ?? "";
+    let match = setCookie.match(/csrftoken=([^;,\s]+)/);
+
     if (!match) {
-      return json502("Failed to obtain CSRF token from LeetCode");
+      // Cloudflare Workers sometimes merge Set-Cookie; iterate all headers
+      for (const [key, val] of loginPage.headers.entries()) {
+        if (key.toLowerCase() === "set-cookie") {
+          match = val.match(/csrftoken=([^;,\s]+)/);
+          if (match) break;
+        }
+      }
     }
-    csrfToken = match[1];
+
+    if (!match) {
+      // Last resort: parse the HTML body for the csrf token in the form
+      const html = await loginPage.text();
+      const htmlMatch = html.match(/csrfmiddlewaretoken['"]\s+value=['"]([^'"]+)/);
+      if (!htmlMatch) {
+        return json502(
+          "Could not obtain CSRF token from LeetCode. " +
+          "LeetCode may be blocking automated logins. " +
+          "Try copying your session cookie manually from the browser."
+        );
+      }
+      csrfToken = htmlMatch[1];
+      csrfCookieHeader = `csrftoken=${csrfToken}`;
+    } else {
+      csrfToken = match[1];
+      csrfCookieHeader = `csrftoken=${csrfToken}`;
+    }
   } catch (err) {
-    return json502("Network error reaching LeetCode", String(err));
+    return json502("Network error reaching LeetCode login page", String(err));
   }
 
-  // ── Step 2: POST login ───────────────────────────────────────────────────
+  // ── Step 2: POST login with form-encoded body (NOT JSON) ──────────────────
   let loginResp: Response;
   try {
+    // Django expects application/x-www-form-urlencoded, not JSON
+    const formBody = new URLSearchParams({
+      csrfmiddlewaretoken: csrfToken,
+      login: username,
+      password: password,
+      next: "/",
+    }).toString();
+
     loginResp = await fetch(LEETCODE_LOGIN, {
       method: "POST",
       headers: {
         ...baseHeaders(),
-        "Content-Type": "application/json",
-        "Cookie": `csrftoken=${csrfToken}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": csrfCookieHeader,
         "x-csrftoken": csrfToken,
-        "Referer": LEETCODE_ORIGIN + "/accounts/login/",
+        "Referer": LEETCODE_LOGIN,
       },
-      body: JSON.stringify({ login: username, password }),
-      redirect: "manual",
+      body: formBody,
+      redirect: "manual", // capture the 302 Set-Cookie before following
     });
   } catch (err) {
-    return json502("Network error during LeetCode login", String(err));
+    return json502("Network error during LeetCode login POST", String(err));
   }
 
-  // ── Step 3: extract LEETCODE_SESSION ─────────────────────────────────────
-  // LeetCode returns 302 on success; session is in the Set-Cookie header.
-  const allCookies = loginResp.headers.get("set-cookie") ?? "";
-
-  // Cloudflare Workers may only see the first Set-Cookie header via .get().
-  // Try the raw headers iterator as a fallback.
+  // ── Step 3: extract LEETCODE_SESSION from Set-Cookie ─────────────────────
   let sessionToken: string | null = null;
-  const sessionMatch = allCookies.match(/LEETCODE_SESSION=([^;]+)/);
+
+  // Try the standard .get() first
+  const allCookies = loginResp.headers.get("set-cookie") ?? "";
+  const sessionMatch = allCookies.match(/LEETCODE_SESSION=([^;,\s]+)/);
   if (sessionMatch) {
     sessionToken = sessionMatch[1];
   } else {
-    // Iterate all headers (Workers expose them all)
+    // Iterate all headers (Workers expose them all via entries())
     for (const [key, val] of loginResp.headers.entries()) {
       if (key.toLowerCase() === "set-cookie" && val.includes("LEETCODE_SESSION")) {
-        const m = val.match(/LEETCODE_SESSION=([^;]+)/);
+        const m = val.match(/LEETCODE_SESSION=([^;,\s]+)/);
         if (m) { sessionToken = m[1]; break; }
       }
     }
   }
 
   if (!sessionToken) {
-    // 401/400 → wrong credentials
     const status = loginResp.status;
-    if (status === 401 || status === 400 || status === 200) {
-      // LeetCode returns 200 with an error page on bad credentials
+    // 302 to /accounts/login/ means bad credentials; 302 elsewhere = success
+    const location = loginResp.headers.get("location") ?? "";
+    if (status === 302 && location.includes("/accounts/login/")) {
       return new Response(
-        JSON.stringify({ error: "Invalid username or password. Check your LeetCode credentials." }),
+        JSON.stringify({ error: "Invalid username or password. Please check your LeetCode credentials." }),
         { status: 401, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
       );
     }
-    return json502(`LeetCode login returned ${status} — could not extract session`, allCookies.slice(0, 200));
+    if (status === 200) {
+      return new Response(
+        JSON.stringify({ error: "Invalid username or password." }),
+        { status: 401, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+    return json502(
+      `LeetCode returned HTTP ${status}. The session cookie was not found.`,
+      `Location: ${location} | Set-Cookie: ${allCookies.slice(0, 120)}`
+    );
   }
 
-  // Success — return only the session token, NEVER the password
+  // ✅ Success — return only the session token, password is NEVER stored
   return new Response(
     JSON.stringify({ sessionToken }),
     { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
@@ -159,7 +206,7 @@ async function handleLeetCodeAuth(request: Request): Promise<Response> {
 
 const worker = {
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
+    const url     = new URL(request.url);
     const session = request.headers.get("X-Leetcode-Session");
 
     // CORS preflight

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Download, Upload, Trash2, HelpCircle, Activity, Sun, Moon, Smartphone } from "lucide-react";
+import { Download, Upload, Trash2, HelpCircle, Sun, Moon, Smartphone } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageShell, PageHeader } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
   importAllDataFromJSON,
   resetAllData,
 } from "@/features/settings/backup";
-import { useGoogleFit } from "@/features/health/use-google-fit";
+
 
 const THEMES = [
   { key: "light" as const, label: "Light", icon: Sun },
@@ -31,13 +31,13 @@ const ACCENTS = [
   { key: "calm" as const, label: "Violet", swatch: "var(--accent-calm)" },
 ];
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+
 
 export default function SettingsPage() {
   const settings = useLiveQuery(() => db.settings.get(1), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const { connectGoogleFit, disconnectGoogleFit } = useGoogleFit();
+
 
   if (!settings) return null;
 
@@ -181,45 +181,23 @@ export default function SettingsPage() {
         </div>
       </SettingsSection>
 
-      {/* ── Health (Google Fit / Steps) ──────────────────────────────────── */}
-      <SettingsSection title="Health &amp; Activity">
-        {settings.googleFitConnected ? (
-          <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
-              </span>
-              <div>
-                <p className="text-sm font-medium text-text">Google Fit connected</p>
-                <p className="text-xs text-text-muted">Steps sync automatically from Android</p>
-              </div>
-            </div>
-            <button
-              onClick={disconnectGoogleFit}
-              className="rounded-lg border border-border px-3 py-1 text-xs text-text-muted hover:text-red-400 transition-colors"
-            >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={GOOGLE_CLIENT_ID ? connectGoogleFit : undefined}
-            disabled={!GOOGLE_CLIENT_ID}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-4 py-3 text-sm text-text-muted hover:border-green-500 hover:text-green-500 disabled:cursor-not-allowed disabled:opacity-40 transition-all"
-          >
-            <Activity className="h-4 w-4" />
-            {GOOGLE_CLIENT_ID ? "Connect Google Fit (Android steps)" : "Google Fit unavailable — set NEXT_PUBLIC_GOOGLE_CLIENT_ID"}
-          </motion.button>
-        )}
+      {/* ── Health & Activity ─────────────────────────────────────────────── */}
+      <SettingsSection title="Health & Activity">
         <SettingsRow
           label="Step goal"
+          description="Target steps per day (shown in Fitness tab)"
           right={
             <NumberField value={settings.stepGoal} onCommit={(n) => patch({ stepGoal: n })} />
           }
         />
+        <div className="rounded-xl border border-[var(--border)] px-4 py-3 text-xs text-text-muted leading-relaxed"
+          style={{ background: "var(--surface-2)" }}>
+          <p className="font-medium text-text mb-1">📱 Step tracking</p>
+          <p>Open the <strong>Fitness</strong> tab and tap <strong>"Start tracking"</strong> — LifeOS uses your phone&apos;s motion sensor to count steps in real time. Steps are saved locally and accumulate across sessions.</p>
+          <p className="mt-1.5 text-text-faint">Keep the app open while tracking. For background step counting, connect Google Fit via the walkthrough guide.</p>
+        </div>
       </SettingsSection>
+
 
       {/* ── Notifications ─────────────────────────────────────────────────── */}
       <SettingsSection title="Notifications">
