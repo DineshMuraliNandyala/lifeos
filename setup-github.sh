@@ -43,5 +43,4 @@ echo "   Click 'Connect Git Repository' → select 'DineshMuraliNandyala/lifeos'
 echo "   Every push to main will auto-deploy to production."
 echo ""
 echo "▸ Add your env vars to Vercel dashboard:"
-echo "   NEXT_PUBLIC_LEETCODE_PROXY_URL = https://lifeos-leetcode-proxy.lifeos-leetcode.workers.dev"
 echo "   NEXT_PUBLIC_GOOGLE_CLIENT_ID   = (after you set up Google Cloud)"

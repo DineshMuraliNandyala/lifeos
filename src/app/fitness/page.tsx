@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Footprints, Dumbbell, Plus, Settings2, Play, RotateCcw, Trophy, Activity, StepForward } from "lucide-react";
+import { Footprints, Dumbbell, Plus, Settings2, Play, RotateCcw, Trophy, Cloud, CloudOff } from "lucide-react";
 import { PageShell, PageHeader } from "@/components/layout/page-shell";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -11,6 +11,9 @@ import { ExerciseEditorSheet } from "@/features/fitness/exercise-editor-sheet";
 import { weekdayLabel } from "@/lib/date";
 import { useFitnessData, addProtein } from "@/features/fitness/use-fitness-data";
 import { useNativePedometer } from "@/features/health/use-native-pedometer";
+import { useGoogleFit } from "@/features/health/use-google-fit";
+import { db } from "@/lib/db";
+import { toLocalISODate } from "@/lib/date";
 
 const QUICK_ADD = [20, 25, 30, 40];
 
@@ -19,14 +22,44 @@ export default function FitnessPage() {
   const { settings, dateISO, weekday, proteinTotal, proteinLoading, todaysExercises, stepReading, todaySession } =
     useFitnessData();
   const pedometer = useNativePedometer();
+  const googleFit = useGoogleFit();
 
   const [editorOpen, setEditorOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [manualStepPrompt, setManualStepPrompt] = useState(false);
+  const [manualStepInput, setManualStepInput] = useState("");
 
   const proteinGoal = settings?.proteinGoalGrams ?? 150;
   const stepGoal = settings?.stepGoal ?? 8000;
 
   const sessionIsOpen = todaySession != null && todaySession.completedAt == null;
   const sessionIsDone = todaySession != null && todaySession.completedAt != null;
+
+  // Auto-sync Google Fit steps when Fitness tab opens (if connected)
+  useEffect(() => {
+    if (!settings?.googleFitConnected) return;
+    const sync = async () => {
+      setIsSyncing(true);
+      await googleFit.syncSteps(7);
+      setIsSyncing(false);
+    };
+    void sync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.googleFitConnected]);
+
+  async function handleManualStepSave() {
+    const n = Number(manualStepInput);
+    if (!manualStepInput || isNaN(n) || n <= 0) return;
+    const today = toLocalISODate(new Date());
+    const existing = await db.stepReadings.where("date").equals(today).first();
+    if (existing) {
+      await db.stepReadings.update(existing.id!, { steps: n, source: "manual" });
+    } else {
+      await db.stepReadings.add({ date: today, steps: n, source: "manual", syncedAt: new Date().toISOString() });
+    }
+    setManualStepInput("");
+    setManualStepPrompt(false);
+  }
 
   return (
     <>
@@ -97,7 +130,7 @@ export default function FitnessPage() {
         <Card className="mb-4">
           <CardHeader title="Protein" subtitle={`Goal: ${proteinGoal}g`} />
           <div className="flex items-center gap-4">
-          <ProgressRing
+            <ProgressRing
               value={proteinLoading ? 0 : (proteinTotal ?? 0) / proteinGoal}
               accent="energy"
               label={proteinLoading ? "--" : `${proteinTotal ?? 0}g`}
@@ -196,16 +229,14 @@ export default function FitnessPage() {
         </Card>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Steps card — live pedometer                                          */}
+        {/* Steps card — Google Fit (primary) + accelerometer (secondary)       */}
         {/* ------------------------------------------------------------------ */}
         {(() => {
-          // Use pedometer count if active, fall back to DB reading from Google Fit
-          const displaySteps = pedometer.status === "active" || pedometer.todaySteps > 0
-            ? pedometer.todaySteps
+          const displaySteps = pedometer.status === "active"
+            ? pedometer.todaySteps   // live session overrides DB
             : (stepReading?.steps ?? 0);
-          const stepGoal = settings?.stepGoal ?? 8000;
-          const distKm   = ((displaySteps * 0.000762)).toFixed(2);
-          const kcal     = Math.round(displaySteps * 0.04);
+          const distKm = (displaySteps * 0.000762).toFixed(2);
+          const kcal = Math.round(displaySteps * 0.04);
 
           return (
             <Card>
@@ -221,66 +252,119 @@ export default function FitnessPage() {
                   label={displaySteps > 0 ? displaySteps.toLocaleString() : "0"}
                   sublabel={`of ${stepGoal.toLocaleString()}`}
                 />
-                <div className="flex-1">
+                <div className="flex-1 space-y-2">
                   {displaySteps > 0 && (
-                    <div className="text-xs text-text-muted space-y-0.5 mb-3">
+                    <div className="text-xs text-text-muted space-y-0.5">
                       <p>~{distKm} km walked</p>
                       <p>~{kcal} kcal burned</p>
                     </div>
                   )}
 
-                  {/* Start / Stop button */}
-                  {pedometer.status === "active" ? (
+                  {/* Google Fit sync button */}
+                  {settings?.googleFitConnected ? (
                     <button
-                      onClick={pedometer.stop}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium transition-all"
-                      style={{
-                        background: "var(--danger-dim)",
-                        color: "var(--danger)",
-                        border: "1px solid var(--danger)",
+                      id="fitness-sync-google-fit-btn"
+                      onClick={async () => {
+                        setIsSyncing(true);
+                        await googleFit.syncSteps(7);
+                        setIsSyncing(false);
                       }}
+                      disabled={isSyncing}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all disabled:opacity-60"
+                      style={{ background: "var(--accent-calm-dim)", color: "var(--accent-calm)", border: "1px solid var(--accent-calm)" }}
                     >
-                      <Activity className="h-3.5 w-3.5 animate-pulse" />
-                      Tracking… Stop
+                      <Cloud className={`h-3.5 w-3.5 ${isSyncing ? "animate-pulse" : ""}`} />
+                      {isSyncing ? "Syncing…" : "Sync Google Fit"}
                     </button>
-                  ) : pedometer.status === "unsupported" ? (
-                    <p className="text-xs text-text-faint">
-                      Motion sensor not available in this browser.
-                    </p>
-                  ) : pedometer.status === "denied" ? (
-                    <p className="text-xs text-danger">
-                      Motion permission denied. Enable in browser settings.
-                    </p>
                   ) : (
                     <button
-                      onClick={pedometer.start}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium transition-all active:scale-95"
-                      style={{
-                        background: "var(--accent-calm-dim)",
-                        color: "var(--accent-calm)",
-                        border: "1px solid var(--accent-calm)",
-                      }}
+                      id="fitness-connect-google-fit-btn"
+                      onClick={googleFit.connectGoogleFit}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all hover:brightness-110"
+                      style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
                     >
-                      <StepForward className="h-3.5 w-3.5" />
-                      {pedometer.status === "requesting" ? "Requesting…" : "Start tracking"}
+                      <CloudOff className="h-3.5 w-3.5" />
+                      Connect Google Fit
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Source label */}
-              <p className="mt-3 text-[10px] text-text-faint">
-                {pedometer.status === "active"
-                  ? "📱 Using phone accelerometer · keep app open"
-                  : stepReading
-                  ? "☁️ Synced from Google Fit"
-                  : "Tap 'Start tracking' to count steps with your phone's motion sensor"}
-              </p>
+              {/* Secondary: accelerometer + manual entry */}
+              <div className="mt-3 pt-3 border-t border-[var(--border-soft)] flex items-center justify-between gap-3">
+                <p className="text-[10px] text-text-faint">
+                  {pedometer.status === "active"
+                    ? "📱 Counting with motion sensor…"
+                    : stepReading?.source === "google_fit"
+                    ? "☁️ Synced from Google Fit"
+                    : stepReading?.source === "manual"
+                    ? "✏️ Steps logged manually"
+                    : "No steps recorded yet"}
+                </p>
+                <div className="flex items-center gap-2">
+                  {/* Manual log shortcut */}
+                  {!manualStepPrompt && pedometer.status !== "active" && (
+                    <button
+                      onClick={() => setManualStepPrompt(true)}
+                      className="text-[11px] text-text-faint hover:text-text transition-colors underline underline-offset-2"
+                    >
+                      Log manually
+                    </button>
+                  )}
+                  {/* Accelerometer start/stop */}
+                  {pedometer.status === "active" ? (
+                    <button
+                      onClick={pedometer.stop}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: "var(--danger-dim)", color: "var(--danger)", border: "1px solid var(--danger)" }}
+                    >
+                      Stop
+                    </button>
+                  ) : pedometer.status !== "unsupported" && pedometer.status !== "denied" ? (
+                    <button
+                      onClick={pedometer.start}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                    >
+                      {pedometer.status === "requesting" ? "…" : "Pedometer"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Manual step input */}
+              {manualStepPrompt && (
+                <div className="mt-2 flex gap-2 items-center">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={manualStepInput}
+                    onChange={(e) => setManualStepInput(e.target.value)}
+                    placeholder="Steps today"
+                    className="flex-1 rounded-lg border px-3 py-1.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-focus"
+                    style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                    onKeyDown={(e) => e.key === "Enter" && handleManualStepSave()}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleManualStepSave}
+                    className="h-8 px-3 rounded-lg text-xs font-medium text-white"
+                    style={{ background: "var(--accent-focus)" }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => { setManualStepPrompt(false); setManualStepInput(""); }}
+                    className="h-8 px-2 rounded-lg text-xs text-text-faint hover:text-text transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </Card>
           );
         })()}
       </PageShell>
-
 
       {/* Exercise editor sheet (portal-like, outside PageShell) */}
       <ExerciseEditorSheet

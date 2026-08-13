@@ -14,6 +14,7 @@ export function AddProblemSheet({ open, onClose }: { open: boolean; onClose: () 
   const [number, setNumber] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("Medium");
   const [topics, setTopics] = useState("");
+  const [leetcodeSlug, setLeetcodeSlug] = useState("");
 
   async function handleSave() {
     if (!title.trim()) return;
@@ -30,7 +31,7 @@ export function AddProblemSheet({ open, onClose }: { open: boolean; onClose: () 
       mistakes: null,
       solvedDate: todayISODate(),
       source: "manual",
-      leetcodeSlug: null,
+      leetcodeSlug: leetcodeSlug.trim() || null,
     });
 
     const firstIntervalDays = SPACED_REPETITION_INTERVALS_DAYS[0];
@@ -49,6 +50,7 @@ export function AddProblemSheet({ open, onClose }: { open: boolean; onClose: () 
     setNumber("");
     setTopics("");
     setDifficulty("Medium");
+    setLeetcodeSlug("");
     onClose();
   }
 
@@ -113,6 +115,17 @@ export function AddProblemSheet({ open, onClose }: { open: boolean; onClose: () 
                 placeholder="Topics, comma separated"
                 className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-focus"
               />
+              <div>
+                <input
+                  value={leetcodeSlug}
+                  onChange={(e) => setLeetcodeSlug(e.target.value)}
+                  placeholder="LeetCode slug (e.g. two-sum)"
+                  className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-focus"
+                />
+                <p className="text-[11px] text-text-faint mt-0.5">
+                  From the URL: leetcode.com/problems/two-sum/
+                </p>
+              </div>
               <Button onClick={handleSave} className="mt-1 w-full">
                 Save problem
               </Button>

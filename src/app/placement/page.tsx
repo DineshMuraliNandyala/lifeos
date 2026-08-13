@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Code2,
   ListTree,
   Brain,
   CalendarDays,
-  RefreshCw,
-  AlertCircle,
   ExternalLink,
 } from "lucide-react";
 import { PageShell, PageHeader } from "@/components/layout/page-shell";
@@ -26,109 +23,22 @@ import {
   ensureWeeklyRevisionList,
   ensureMonthlyRevisionList,
 } from "@/features/placement/use-revision-engine";
-import {
-  syncLeetCode,
-  resetSyncThrottle,
-  type SyncResult,
-} from "@/features/placement/use-leetcode-sync";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const PROXY_URL = process.env.NEXT_PUBLIC_LEETCODE_PROXY_URL ?? "";
 const DIFFICULTY_TONE = { Easy: "success", Medium: "warning", Hard: "danger" } as const;
 
 // ---------------------------------------------------------------------------
-// Sync status pill
+// Helpers
 // ---------------------------------------------------------------------------
 
-type SyncPhase =
-  | { phase: "idle" }
-  | { phase: "syncing" }
-  | { phase: "done"; result: SyncResult };
-
-function SyncStatusPill({
-  syncState,
-  onManualSync,
-}: {
-  syncState: SyncPhase;
-  onManualSync: () => void;
-}) {
-  // "no_config" → show a setup prompt (persistent)
-  if (syncState.phase === "done" && syncState.result.status === "no_config") {
-    return (
-      <a
-        href="https://github.com/your-repo/lifeos/blob/main/proxy/README.md"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs text-text-faint hover:text-text transition-colors"
-        id="lc-setup-proxy-link"
-      >
-        <AlertCircle className="h-3.5 w-3.5 text-warning shrink-0" />
-        <span>LeetCode sync — set up proxy</span>
-        <ExternalLink className="h-3 w-3 shrink-0" />
-      </a>
-    );
+function leetcodeHref(problem: { leetcodeSlug: string | null; title: string }): string {
+  if (problem.leetcodeSlug) {
+    return `https://leetcode.com/problems/${problem.leetcodeSlug}/`;
   }
-
-  // "no_username" → silent (handled by the Settings UI already)
-  if (
-    syncState.phase === "idle" ||
-    (syncState.phase === "done" && syncState.result.status === "no_username") ||
-    (syncState.phase === "done" && syncState.result.status === "throttled")
-  ) {
-    return null;
-  }
-
-  // Syncing spinner
-  if (syncState.phase === "syncing") {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-text-faint">
-        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-        <span>Syncing LeetCode…</span>
-      </div>
-    );
-  }
-
-  // Error
-  if (syncState.phase === "done" && syncState.result.status === "error") {
-    return (
-      <button
-        id="lc-retry-sync-btn"
-        onClick={onManualSync}
-        className="flex items-center gap-1.5 text-xs text-danger hover:brightness-110 transition-colors"
-      >
-        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-        <span>Sync failed — tap to retry</span>
-      </button>
-    );
-  }
-
-  // Synced — show new count badge, auto-dismiss after 4s
-  if (syncState.phase === "done" && syncState.result.status === "synced") {
-    const { newCount } = syncState.result;
-    return (
-      <AnimatePresence>
-        <motion.div
-          key="synced"
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          className="flex items-center gap-1.5 text-xs text-success"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          <span>
-            {newCount > 0
-              ? `${newCount} new problem${newCount > 1 ? "s" : ""} synced`
-              : "LeetCode up to date"}
-          </span>
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
-
-  return null;
+  return `https://leetcode.com/problemset/?search=${encodeURIComponent(problem.title)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,68 +51,9 @@ export default function PlacementPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
-  const [syncState, setSyncState] = useState<SyncPhase>({ phase: "idle" });
 
   const weeklyGoal = settings?.weeklyCodingGoal ?? 7;
   const weeklyProgress = Math.min(1, totalSolved / Math.max(1, weeklyGoal));
-
-  // ---- Run sync on mount (auto) and handle status display ----
-  async function runSync(force = false) {
-    const username = settings?.leetcodeUsername;
-    if (!username && !PROXY_URL) {
-      setSyncState({ phase: "done", result: { status: "no_config", newCount: 0 } });
-      return;
-    }
-    if (!username) {
-      setSyncState({ phase: "done", result: { status: "no_username", newCount: 0 } });
-      return;
-    }
-
-    if (force) resetSyncThrottle();
-
-    setSyncState({ phase: "syncing" });
-    const result = await syncLeetCode(username, {
-      force,
-      sessionToken: settings?.leetcodeSession ?? null,
-    });
-    setSyncState({ phase: "done", result });
-
-    // Auto-dismiss "up to date" / "new problems" message after 4 seconds
-    if (result.status === "synced") {
-      setTimeout(() => setSyncState({ phase: "idle" }), 4000);
-    }
-  }
-
-  // ---- Auto-sync when settings become available (or username changes) -----
-  // We use an async IIFE so state updates only happen inside await continuations,
-  // never in the synchronous effect body — avoids react-hooks/set-state-in-effect.
-  useEffect(() => {
-    if (settings === undefined) return;
-
-    const username = settings.leetcodeUsername;
-
-    const go = async () => {
-      if (!username && !PROXY_URL) {
-        setSyncState({ phase: "done", result: { status: "no_config", newCount: 0 } });
-        return;
-      }
-      if (!username) {
-        setSyncState({ phase: "done", result: { status: "no_username", newCount: 0 } });
-        return;
-      }
-
-      setSyncState({ phase: "syncing" });
-      const result = await syncLeetCode(username, { sessionToken: settings?.leetcodeSession ?? null });
-      setSyncState({ phase: "done", result });
-
-      if (result.status === "synced") {
-        setTimeout(() => setSyncState({ phase: "idle" }), 4000);
-      }
-    };
-
-    void go();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings?.leetcodeUsername]);
 
   // Auto-generate weekly + monthly revision lists on mount (idempotent)
   useEffect(() => {
@@ -218,32 +69,11 @@ export default function PlacementPage() {
           eyebrow="Placement"
           title="Coding prep"
           right={
-            <div className="flex items-center gap-2">
-              {/* Manual sync button — only if proxy is configured */}
-              {PROXY_URL && settings?.leetcodeUsername && (
-                <button
-                  id="lc-manual-sync-btn"
-                  onClick={() => runSync(true)}
-                  disabled={syncState.phase === "syncing"}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-text-faint hover:text-text hover:bg-surface-hover transition-colors disabled:opacity-40"
-                  title="Sync LeetCode now"
-                >
-                  <RefreshCw
-                    className={["h-4 w-4", syncState.phase === "syncing" ? "animate-spin" : ""].join(" ")}
-                  />
-                </button>
-              )}
-              <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> Add
-              </Button>
-            </div>
+            <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
           }
         />
-
-        {/* Sync status pill */}
-        <div className="mb-3 min-h-[1.25rem]">
-          <SyncStatusPill syncState={syncState} onManualSync={() => runSync(true)} />
-        </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -320,14 +150,10 @@ export default function PlacementPage() {
             <EmptyState
               icon={Code2}
               title="No problems logged yet"
-              description={
-                PROXY_URL && settings?.leetcodeUsername
-                  ? "LeetCode sync is active — your recent AC submissions will appear here automatically."
-                  : "Add your first solved problem, or set up LeetCode sync in the proxy README."
-              }
+              description="Add your first solved problem to start tracking your revision schedule."
               action={
                 <Button size="sm" onClick={() => setAddOpen(true)}>
-                  Add manually
+                  Add problem
                 </Button>
               }
             />
@@ -335,23 +161,28 @@ export default function PlacementPage() {
             <ul className="flex flex-col divide-y divide-border-soft">
               {problems.map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">
                       {p.number ? `${p.number}. ` : ""}
                       {p.title}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-text-faint">
-                        {p.topics.join(", ") || "No topics"}
-                      </p>
-                      {p.source === "leetcode_sync" && (
-                        <span className="text-[10px] text-text-faint/60 font-medium">
-                          · LC
-                        </span>
-                      )}
-                    </div>
+                    <p className="text-xs text-text-faint">
+                      {p.topics.join(", ") || "No topics"}
+                    </p>
                   </div>
-                  <Badge tone={DIFFICULTY_TONE[p.difficulty]}>{p.difficulty}</Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge tone={DIFFICULTY_TONE[p.difficulty]}>{p.difficulty}</Badge>
+                    <a
+                      href={leetcodeHref(p)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-faint hover:text-focus hover:bg-focus-dim transition-colors"
+                      title="Open on LeetCode"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Brain, CheckCircle2, RotateCcw, Minus } from "lucide-react";
+import { ChevronLeft, Brain, CheckCircle2, RotateCcw, Minus, ExternalLink } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +78,7 @@ function ReviewCard({
   onResult,
 }: {
   revision: { id: number; stage: number; history: Array<{ date: string; result: string }> };
-  problem: { title: string; number: number | null; difficulty: Difficulty; topics: string[]; notes: string | null; approach: string | null };
+  problem: { title: string; number: number | null; difficulty: Difficulty; topics: string[]; notes: string | null; approach: string | null; leetcodeSlug: string | null };
   index: number;
   total: number;
   onResult: (r: "easy" | "hard" | "forgot") => void;
@@ -89,6 +89,12 @@ function ReviewCard({
   const stageLabel = STAGE_LABEL[Math.min(revision.stage, STAGE_LABEL.length - 1)];
   const nextStageLabel = STAGE_LABEL[Math.min(revision.stage + 1, STAGE_LABEL.length - 1)];
   const nextEasyDays = SPACED_REPETITION_INTERVALS_DAYS[Math.min(revision.stage + 1, SPACED_REPETITION_INTERVALS_DAYS.length - 1)];
+
+  const leetcodeUrl = problem.leetcodeSlug
+    ? `https://leetcode.com/problems/${problem.leetcodeSlug}/`
+    : problem.title
+    ? `https://leetcode.com/problemset/?search=${encodeURIComponent(problem.title)}`
+    : null;
 
   async function handleResult(result: "easy" | "hard" | "forgot") {
     setSubmitting(true);
@@ -149,6 +155,18 @@ function ReviewCard({
               </span>
             ))}
           </div>
+          {leetcodeUrl && (
+            <a
+              href={leetcodeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all hover:brightness-110"
+              style={{ background: "var(--accent-focus-dim)", color: "var(--accent-focus)" }}
+            >
+              <ExternalLink className="h-3 w-3" />
+              Practice on LeetCode
+            </a>
+          )}
 
           <div className="mt-3 flex items-center gap-2 text-xs text-text-faint">
             <span className="rounded-full bg-surface-2 px-2 py-0.5">

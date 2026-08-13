@@ -2,14 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Download, Upload, Trash2, HelpCircle, Sun, Moon, Smartphone } from "lucide-react";
+import { Download, Upload, Trash2, HelpCircle, Sun, Moon, Smartphone, Wifi } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageShell, PageHeader } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { NumberField } from "@/components/ui/number-field";
 import { SettingsSection, SettingsRow } from "@/features/settings/settings-list";
-import { LeetCodeConnect } from "@/features/settings/leetcode-connect";
+import { useGoogleFit } from "@/features/health/use-google-fit";
 import { db } from "@/lib/db";
 import {
   exportAllDataAsJSON,
@@ -37,6 +37,7 @@ export default function SettingsPage() {
   const settings = useLiveQuery(() => db.settings.get(1), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const { connectGoogleFit, disconnectGoogleFit } = useGoogleFit();
 
 
   if (!settings) return null;
@@ -141,12 +142,6 @@ export default function SettingsPage() {
           }
         />
         <SettingsRow
-          label="Step goal"
-          right={
-            <NumberField value={settings.stepGoal} onCommit={(n) => patch({ stepGoal: n })} />
-          }
-        />
-        <SettingsRow
           label="Weekly coding goal"
           right={
             <NumberField
@@ -158,30 +153,7 @@ export default function SettingsPage() {
         />
       </SettingsSection>
 
-      {/* ── Placement (LeetCode) ─────────────────────────────────────────── */}
-      <SettingsSection title="Placement">
-        <SettingsRow
-          label="LeetCode username"
-          description="Your public LeetCode username (shown on your profile URL)"
-          right={
-            <input
-              defaultValue={settings.leetcodeUsername ?? ""}
-              onBlur={(e) => patch({ leetcodeUsername: e.target.value || null })}
-              placeholder="username"
-              className="w-32 rounded-lg border border-border bg-surface-2 px-2 py-1 text-right text-sm text-text placeholder:text-text-faint outline-none focus:border-focus"
-            />
-          }
-        />
-        {/* Replace cookie paste with one-tap connect */}
-        <div className="px-1 py-1">
-          <LeetCodeConnect
-            currentUsername={settings.leetcodeUsername}
-            isConnected={settings.leetcodeConnected ?? false}
-          />
-        </div>
-      </SettingsSection>
-
-      {/* ── Health & Activity ─────────────────────────────────────────────── */}
+      {/* ── Health & Activity ─────────────────────────────────────────── */}
       <SettingsSection title="Health & Activity">
         <SettingsRow
           label="Step goal"
@@ -190,11 +162,50 @@ export default function SettingsPage() {
             <NumberField value={settings.stepGoal} onCommit={(n) => patch({ stepGoal: n })} />
           }
         />
-        <div className="rounded-xl border border-[var(--border)] px-4 py-3 text-xs text-text-muted leading-relaxed"
-          style={{ background: "var(--surface-2)" }}>
-          <p className="font-medium text-text mb-1">📱 Step tracking</p>
-          <p>Open the <strong>Fitness</strong> tab and tap <strong>"Start tracking"</strong> — LifeOS uses your phone&apos;s motion sensor to count steps in real time. Steps are saved locally and accumulate across sessions.</p>
-          <p className="mt-1.5 text-text-faint">Keep the app open while tracking. For background step counting, connect Google Fit via the walkthrough guide.</p>
+
+        {/* Google Fit connect/disconnect */}
+        {settings.googleFitConnected ? (
+          <SettingsRow
+            label="Google Fit"
+            description="Step data syncs when you open the Fitness tab"
+            right={
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--success)" }}>
+                  <Wifi className="h-3.5 w-3.5" />
+                  Connected
+                </span>
+                <button
+                  onClick={disconnectGoogleFit}
+                  className="rounded-lg border px-2.5 py-1 text-xs text-text-muted hover:text-danger hover:border-danger transition-colors"
+                  style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+                >
+                  Disconnect
+                </button>
+              </div>
+            }
+          />
+        ) : (
+          <div className="px-1 py-1">
+            <button
+              onClick={connectGoogleFit}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm font-medium transition-all hover:brightness-110"
+              style={{ borderColor: "var(--accent-calm)", color: "var(--accent-calm)", background: "var(--accent-calm-dim)" }}
+            >
+              <Wifi className="h-4 w-4" />
+              Connect Google Fit for background step sync
+            </button>
+            <p className="mt-2 text-[11px] text-text-faint text-center leading-relaxed">
+              One-time Google sign-in · steps sync automatically · token stored only on this device
+            </p>
+          </div>
+        )}
+
+        <div
+          className="rounded-xl border px-4 py-3 text-xs text-text-muted leading-relaxed"
+          style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+        >
+          <p className="font-medium text-text mb-1">📱 No Google Fit? Use your phone motion sensor</p>
+          <p>Open the <strong>Fitness</strong> tab and tap <strong>&quot;Start tracking&quot;</strong> — LifeOS uses your phone&apos;s accelerometer to count steps in real time while the app is open.</p>
         </div>
       </SettingsSection>
 

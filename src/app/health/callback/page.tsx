@@ -21,36 +21,38 @@ export default function GoogleFitCallbackPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const hash = window.location.hash.slice(1); // remove leading #
-    const params = new URLSearchParams(hash);
+    const run = async () => {
+      const hash = window.location.hash.slice(1); // remove leading #
+      const params = new URLSearchParams(hash);
 
-    const accessToken = params.get("access_token");
-    const expiresIn = Number(params.get("expires_in") ?? "3600");
-    const error = params.get("error");
+      const accessToken = params.get("access_token");
+      const expiresIn = Number(params.get("expires_in") ?? "3600");
+      const error = params.get("error");
 
-    if (error) {
-      setErrorMsg(error === "access_denied" ? "Access denied — please try again and allow the requested permissions." : `OAuth error: ${error}`);
-      setStatus("error");
-      return;
-    }
+      if (error) {
+        setErrorMsg(error === "access_denied" ? "Access denied — please try again and allow the requested permissions." : `OAuth error: ${error}`);
+        setStatus("error");
+        return;
+      }
 
-    if (!accessToken) {
-      setErrorMsg("No access token received from Google. Please try again.");
-      setStatus("error");
-      return;
-    }
+      if (!accessToken) {
+        setErrorMsg("No access token received from Google. Please try again.");
+        setStatus("error");
+        return;
+      }
 
-    setGoogleFitTokenFromCallback(accessToken, expiresIn)
-      .then(() => {
+      try {
+        await setGoogleFitTokenFromCallback(accessToken, expiresIn);
         setStatus("success");
         // Redirect back to Settings after a short delay
         const returnPath = (() => { try { return localStorage.getItem("gfit_redirect_origin") ?? "/settings"; } catch { return "/settings"; } })();
         setTimeout(() => router.replace(returnPath), 1500);
-      })
-      .catch((err) => {
+      } catch (err) {
         setErrorMsg(String(err));
         setStatus("error");
-      });
+      }
+    };
+    void run();
   }, [router]);
 
   return (

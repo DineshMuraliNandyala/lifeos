@@ -306,7 +306,7 @@ export default function NotesPage() {
                       {confirmDel && (
                         <div className="mt-4 rounded-xl px-3 py-2 text-xs"
                           style={{ background: "var(--danger-dim)", color: "var(--danger)" }}>
-                          ⚠️ Tap "Confirm delete" to permanently delete this note, or tap elsewhere to cancel.
+                          ⚠️ Tap &quot;Confirm delete&quot; to permanently delete this note, or tap elsewhere to cancel.
                         </div>
                       )}
                     </>
