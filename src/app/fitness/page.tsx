@@ -11,7 +11,7 @@ import { ExerciseEditorSheet } from "@/features/fitness/exercise-editor-sheet";
 import { weekdayLabel } from "@/lib/date";
 import { useFitnessData, addProtein } from "@/features/fitness/use-fitness-data";
 import { useNativePedometer } from "@/features/health/use-native-pedometer";
-import { useGoogleFit, isGoogleFitConfigured } from "@/features/health/use-google-fit";
+import { useGoogleFit } from "@/features/health/use-google-fit";
 import { db } from "@/lib/db";
 import { toLocalISODate } from "@/lib/date";
 
@@ -276,21 +276,16 @@ export default function FitnessPage() {
                       <Cloud className={`h-3.5 w-3.5 ${isSyncing ? "animate-pulse" : ""}`} />
                       {isSyncing ? "Syncing…" : "Sync Google Fit"}
                     </button>
-                  ) : isGoogleFitConfigured() ? (
+                  ) : (
                     <button
                       id="fitness-connect-google-fit-btn"
                       onClick={googleFit.connectGoogleFit}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all hover:brightness-110"
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all hover:brightness-110 active:scale-95"
                       style={{ background: "var(--accent-calm-dim)", color: "var(--accent-calm)", border: "1px solid var(--accent-calm)" }}
                     >
                       <CloudOff className="h-3.5 w-3.5" />
                       Connect Google Fit
                     </button>
-                  ) : (
-                    <p className="text-[11px] text-text-faint leading-relaxed">
-                      Google Fit not set up.{" "}
-                      <a href="/settings" className="underline underline-offset-2 hover:text-text transition-colors">Configure in Settings →</a>
-                    </p>
                   )}
                 </div>
               </div>

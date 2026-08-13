@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { NumberField } from "@/components/ui/number-field";
 import { SettingsSection, SettingsRow } from "@/features/settings/settings-list";
-import { useGoogleFit, isGoogleFitConfigured } from "@/features/health/use-google-fit";
+import { useGoogleFit } from "@/features/health/use-google-fit";
 import { db } from "@/lib/db";
 import {
   exportAllDataAsJSON,
@@ -184,11 +184,12 @@ export default function SettingsPage() {
               </div>
             }
           />
-        ) : isGoogleFitConfigured() ? (
+        ) : (
           <div className="px-1 py-1">
             <button
+              id="settings-connect-google-fit-btn"
               onClick={connectGoogleFit}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm font-medium transition-all hover:brightness-110"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm font-medium transition-all hover:brightness-110 active:scale-95"
               style={{ borderColor: "var(--accent-calm)", color: "var(--accent-calm)", background: "var(--accent-calm-dim)" }}
             >
               <Wifi className="h-4 w-4" />
@@ -197,21 +198,6 @@ export default function SettingsPage() {
             <p className="mt-2 text-[11px] text-text-faint text-center leading-relaxed">
               One-time Google sign-in · steps sync automatically · token stored only on this device
             </p>
-          </div>
-        ) : (
-          <div
-            className="rounded-xl border px-4 py-3 text-xs leading-relaxed space-y-1.5"
-            style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
-          >
-            <p className="font-medium text-text">☁️ Set up Google Fit (optional)</p>
-            <p className="text-text-muted">To enable automatic step syncing, add your Google OAuth Client ID:</p>
-            <ol className="list-decimal list-inside text-text-muted space-y-1">
-              <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-text transition-colors">console.cloud.google.com</a></li>
-              <li>Create a project → Enable <strong className="text-text">Fitness API</strong></li>
-              <li>Credentials → OAuth 2.0 Client ID → <strong className="text-text">Web Application</strong></li>
-              <li>Add redirect URI: <code className="font-mono bg-surface-1 px-1 rounded">{typeof window !== "undefined" ? window.location.origin : "https://your-app.com"}/health/callback</code></li>
-              <li>Add <code className="font-mono bg-surface-1 px-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-id</code> to <code className="font-mono bg-surface-1 px-1 rounded">.env.local</code> and redeploy</li>
-            </ol>
           </div>
         )}
 
