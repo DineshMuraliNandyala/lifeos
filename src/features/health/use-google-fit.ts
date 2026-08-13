@@ -22,10 +22,9 @@ import { toLocalISODate } from "@/lib/date";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const SCOPE = "https://www.googleapis.com/auth/fitness.activity.read";
-const REDIRECT_URI =
-  typeof window !== "undefined"
-    ? `${window.location.origin}/health/callback`
-    : "";
+
+/** True only in the browser when the env var is configured. */
+export const isGoogleFitConfigured = () => typeof window !== "undefined" && CLIENT_ID.length > 0;
 
 const FITNESS_API = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
 const LS_REDIRECT = "gfit_redirect_origin";
@@ -59,15 +58,20 @@ export function useGoogleFit() {
   /** Open Google OAuth consent screen in current tab */
   function connectGoogleFit() {
     if (!CLIENT_ID) {
-      console.warn("NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set — Google Fit unavailable");
+      alert(
+        "Google Fit is not configured.\n\n" +
+        "Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to your .env.local file and redeploy.\n\n" +
+        "See Settings → Health & Activity for setup instructions."
+      );
       return;
     }
     // Store the current path so the callback can redirect back
     try { localStorage.setItem(LS_REDIRECT, window.location.pathname); } catch { /* */ }
 
+    const redirectUri = `${window.location.origin}/health/callback`;
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
-      redirect_uri: `${window.location.origin}/health/callback`,
+      redirect_uri: redirectUri,
       response_type: "token",          // implicit flow — no server needed
       scope: SCOPE,
       prompt: "consent",               // always show screen so we get refresh-like behaviour
